@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
-import os
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
@@ -25,9 +23,11 @@ def home():
 def movement():
 
     try:
+
         data = request.get_json()
 
         if not data:
+
             return jsonify({
                 "success": False,
                 "message": "No movement data received"
@@ -49,43 +49,75 @@ def movement():
         # MOVEMENT INFORMATION
         # ==========================================
 
-        distance = data.get("distance", 0)
+        distance = data.get(
+            "distance",
+            0
+        )
 
-        speed = data.get("speed")
-        previous_speed = data.get("previous_speed")
+        speed = data.get(
+            "speed"
+        )
 
-        speed_change = data.get("speed_change", 0)
+        previous_speed = data.get(
+            "previous_speed"
+        )
 
-        acceleration = data.get("acceleration", 0)
+        speed_change = data.get(
+            "speed_change",
+            0
+        )
 
-        direction = data.get("direction")
+        acceleration = data.get(
+            "acceleration",
+            0
+        )
 
-        movement_source = data.get(
+        direction = data.get(
+            "direction"
+        )
+
+        source = data.get(
             "source",
-            "GPS Movement"
+            "Unknown"
         )
 
 
         # ==========================================
-        # BASIC VALIDATION
+        # GPS AVAILABILITY
         # ==========================================
 
-        if latitude is None or longitude is None:
-
-            return jsonify({
-                "success": False,
-                "message": "Latitude and longitude are required"
-            }), 400
+        gps_available = (
+            latitude is not None
+            and
+            longitude is not None
+        )
 
 
         # ==========================================
-        # SIMPLE SAFETY ANALYSIS
+        # BASIC VALUE SAFETY
+        # ==========================================
+
+        if distance is None:
+            distance = 0
+
+        if speed_change is None:
+            speed_change = 0
+
+        if acceleration is None:
+            acceleration = 0
+
+
+        # ==========================================
+        # SAFETY ANALYSIS
         # ==========================================
 
         risk_score = 0
 
 
-        # Poor GPS accuracy
+        # ------------------------------------------
+        # GPS ACCURACY
+        # ------------------------------------------
+
         if accuracy is not None:
 
             if accuracy > 100:
@@ -95,7 +127,10 @@ def movement():
                 risk_score += 5
 
 
-        # High speed
+        # ------------------------------------------
+        # SPEED
+        # ------------------------------------------
+
         if speed is not None:
 
             if speed > 8:
@@ -105,7 +140,10 @@ def movement():
                 risk_score += 10
 
 
-        # High acceleration
+        # ------------------------------------------
+        # ACCELERATION
+        # ------------------------------------------
+
         if acceleration is not None:
 
             if acceleration > 5:
@@ -115,7 +153,10 @@ def movement():
                 risk_score += 10
 
 
-        # Large movement
+        # ------------------------------------------
+        # MOVEMENT DISTANCE
+        # ------------------------------------------
+
         if distance is not None:
 
             if distance > 10:
@@ -126,22 +167,53 @@ def movement():
 
 
         # ==========================================
+        # DEVICE SHAKE ANALYSIS
+        # ==========================================
+
+        if source == "Device Shake":
+
+            # A detected device shake itself
+            # contributes to the safety event.
+
+            risk_score += 10
+
+
+        # ==========================================
+        # GPS UNAVAILABLE
+        # ==========================================
+
+        if not gps_available:
+
+            print(
+                "GPS currently unavailable."
+            )
+
+            # Do not reject the movement event.
+            # Device shake can work independently.
+
+
+        # ==========================================
         # RISK LEVEL
         # ==========================================
 
         if risk_score >= 40:
 
             risk_level = "HIGH"
+
             action = "REPORT_EMERGENCY"
+
 
         elif risk_score >= 20:
 
             risk_level = "MEDIUM"
+
             action = "CONFIRM_SAFE"
+
 
         else:
 
             risk_level = "LOW"
+
             action = "CONFIRM_SAFE"
 
 
@@ -149,14 +221,19 @@ def movement():
         # SERVER LOG
         # ==========================================
 
-        print("\n========== MOVEMENT EVENT ==========")
+        print()
+        print("========== MOVEMENT EVENT ==========")
 
-        print("Source:", movement_source)
+        print("Source:", source)
+
+        print("GPS Available:", gps_available)
 
         print("Latitude:", latitude)
+
         print("Longitude:", longitude)
 
         print("Accuracy:", accuracy)
+
         print("Altitude:", altitude)
 
         print("Timestamp:", timestamp)
@@ -164,6 +241,7 @@ def movement():
         print("Distance:", distance)
 
         print("Speed:", speed)
+
         print("Previous Speed:", previous_speed)
 
         print("Speed Change:", speed_change)
@@ -173,9 +251,13 @@ def movement():
         print("Direction:", direction)
 
         print("Risk Score:", risk_score)
+
         print("Risk Level:", risk_level)
 
-        print("====================================\n")
+        print("Recommended Action:", action)
+
+        print("====================================")
+        print()
 
 
         # ==========================================
@@ -188,7 +270,15 @@ def movement():
 
             "movement_detected": True,
 
-            "source": movement_source,
+            "source": source,
+
+            "gps_available": gps_available,
+
+            "latitude": latitude,
+
+            "longitude": longitude,
+
+            "distance": distance,
 
             "risk_score": risk_score,
 
@@ -198,12 +288,20 @@ def movement():
 
             "message":
                 "Movement received and analyzed successfully."
-        })
+        }), 200
 
+
+    # ==========================================
+    # ERROR HANDLING
+    # ==========================================
 
     except Exception as e:
 
-        print("Movement API Error:", e)
+        print(
+            "Movement API Error:",
+            e
+        )
+
 
         return jsonify({
 
@@ -212,13 +310,14 @@ def movement():
             "message":
                 "Server error while processing movement.",
 
-            "error": str(e)
+            "error":
+                str(e)
 
         }), 500
 
 
 # ==========================================
-# RUN SERVER
+# RUN APPLICATION
 # ==========================================
 
 if __name__ == "__main__":
