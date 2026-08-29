@@ -1,6 +1,7 @@
 // ===============================
 // SafeRoute AI
-// GPS + Device Shake + Safety Alert
+// GPS + Device Shake + Alarm
+// Flask + Twilio Emergency
 // ===============================
 
 
@@ -8,15 +9,10 @@
 // CONFIGURATION
 // ===============================
 
-// GPS movement threshold
-// 0 = highly sensitive testing
 const MIN_MOVEMENT_METERS = 0;
 
-// Shake sensitivity
-// Lower value = more sensitive
 const SHAKE_THRESHOLD = 0.30;
 
-// Prevent repeated shake alerts
 const SHAKE_COOLDOWN = 1500;
 
 
@@ -25,10 +21,13 @@ const SHAKE_COOLDOWN = 1500;
 // ===============================
 
 let watchId = null;
+
 let trackingActive = false;
 
 let referencePosition = null;
+
 let previousPosition = null;
+
 let previousSpeed = null;
 
 
@@ -37,7 +36,9 @@ let previousSpeed = null;
 // ===============================
 
 let motionTrackingActive = false;
+
 let lastAcceleration = null;
+
 let lastShakeTime = 0;
 
 
@@ -46,8 +47,17 @@ let lastShakeTime = 0;
 // ===============================
 
 let audioContext = null;
+
 let alarmInterval = null;
+
 let alarmActive = false;
+
+
+// ===============================
+// LAST MOVEMENT EVENT
+// ===============================
+
+let lastMovementEvent = null;
 
 
 // ===============================
@@ -55,43 +65,69 @@ let alarmActive = false;
 // ===============================
 
 const startBtn =
-    document.getElementById("startBtn");
+    document.getElementById(
+        "startBtn"
+    );
 
 const stopBtn =
-    document.getElementById("stopBtn");
+    document.getElementById(
+        "stopBtn"
+    );
 
 const trackingStatus =
-    document.getElementById("trackingStatus");
+    document.getElementById(
+        "trackingStatus"
+    );
 
 const latitudeElement =
-    document.getElementById("latitude");
+    document.getElementById(
+        "latitude"
+    );
 
 const longitudeElement =
-    document.getElementById("longitude");
+    document.getElementById(
+        "longitude"
+    );
 
 const accuracyElement =
-    document.getElementById("accuracy");
+    document.getElementById(
+        "accuracy"
+    );
 
 const speedElement =
-    document.getElementById("speed");
+    document.getElementById(
+        "speed"
+    );
 
 const altitudeElement =
-    document.getElementById("altitude");
+    document.getElementById(
+        "altitude"
+    );
 
 const timestampElement =
-    document.getElementById("timestamp");
+    document.getElementById(
+        "timestamp"
+    );
 
 const alertBox =
-    document.getElementById("alertBox");
+    document.getElementById(
+        "alertBox"
+    );
 
 const movementMessage =
-    document.getElementById("movementMessage");
+    document.getElementById(
+        "movementMessage"
+    );
 
 const safeBtn =
-    document.getElementById("safeBtn");
+    document.getElementById(
+        "safeBtn"
+    );
 
 const emergencyBtn =
-    document.getElementById("emergencyBtn");
+    document.getElementById(
+        "emergencyBtn"
+    );
 
 
 // ===============================
@@ -117,23 +153,31 @@ async function startTracking() {
 
 
     if (trackingActive) {
+
         return;
     }
 
 
-    // Reset tracking state
-
     trackingActive = true;
 
+
     referencePosition = null;
+
     previousPosition = null;
+
     previousSpeed = null;
 
     lastAcceleration = null;
+
     lastShakeTime = 0;
 
+    lastMovementEvent = null;
 
-    alertBox.classList.add("hidden");
+
+    alertBox.classList.add(
+        "hidden"
+    );
+
 
     stopAlarm();
 
@@ -142,30 +186,32 @@ async function startTracking() {
         "Requesting GPS...";
 
 
-    // ===============================
-    // START GPS WATCH
-    // ===============================
-
     watchId =
         navigator.geolocation.watchPosition(
+
             handlePosition,
+
             handleGeolocationError,
+
             {
-                enableHighAccuracy: true,
-                maximumAge: 10000,
-                timeout: 20000
+
+                enableHighAccuracy:
+                    true,
+
+                maximumAge:
+                    10000,
+
+                timeout:
+                    20000
             }
         );
 
-
-    // ===============================
-    // START DEVICE MOTION
-    // ===============================
 
     await startShakeDetection();
 
 
     startBtn.disabled = true;
+
     stopBtn.disabled = false;
 
 
@@ -180,10 +226,12 @@ async function startTracking() {
 
 
 // ===============================
-// GPS POSITION HANDLER
+// GPS POSITION
 // ===============================
 
-function handlePosition(position) {
+function handlePosition(
+    position
+) {
 
     const coords =
         position.coords;
@@ -212,7 +260,7 @@ function handlePosition(position) {
 
 
     // ===============================
-    // FIRST GPS POSITION
+    // FIRST POSITION
     // ===============================
 
     if (
@@ -258,7 +306,7 @@ function handlePosition(position) {
 
 
     // ===============================
-    // CALCULATE GPS DISTANCE
+    // DISTANCE
     // ===============================
 
     const distance =
@@ -275,7 +323,7 @@ function handlePosition(position) {
 
 
     // ===============================
-    // CALCULATE SPEED CHANGE
+    // SPEED CHANGE
     // ===============================
 
     let speedChange = 0;
@@ -283,7 +331,9 @@ function handlePosition(position) {
 
     if (
 
-        currentPosition.speed !== null &&
+        currentPosition.speed !== null
+
+        &&
 
         previousSpeed !== null
 
@@ -315,7 +365,7 @@ function handlePosition(position) {
 
 
     // ===============================
-    // GPS MOVEMENT DETECTION
+    // GPS MOVEMENT
     // ===============================
 
     if (
@@ -345,10 +395,6 @@ function handlePosition(position) {
     }
 
 
-    // ===============================
-    // UPDATE PREVIOUS POSITION
-    // ===============================
-
     previousPosition =
         currentPosition;
 
@@ -373,14 +419,19 @@ function handlePosition(position) {
 
 
 // ===============================
-// HAVERSINE DISTANCE
+// HAVERSINE
 // ===============================
 
 function calculateDistance(
+
     lat1,
+
     lon1,
+
     lat2,
+
     lon2
+
 ) {
 
     const EARTH_RADIUS =
@@ -411,45 +462,49 @@ function calculateDistance(
 
         Math.sin(
             latitudeDifference / 2
-        ) *
-        Math.sin(
-            latitudeDifference / 2
-        )
+        ) ** 2
 
         +
 
         Math.cos(firstLatitude) *
+
         Math.cos(secondLatitude) *
 
         Math.sin(
             longitudeDifference / 2
-        ) *
-        Math.sin(
-            longitudeDifference / 2
-        );
+        ) ** 2;
 
 
     const c =
 
         2 *
+
         Math.atan2(
+
             Math.sqrt(a),
+
             Math.sqrt(1 - a)
         );
 
 
-    return EARTH_RADIUS * c;
+    return (
+        EARTH_RADIUS * c
+    );
 }
 
 
 // ===============================
-// DEGREES TO RADIANS
+// RADIANS
 // ===============================
 
-function toRadians(degrees) {
+function toRadians(
+    degrees
+) {
 
     return degrees *
-        (Math.PI / 180);
+        (
+            Math.PI / 180
+        );
 }
 
 
@@ -460,22 +515,26 @@ function toRadians(degrees) {
 async function startShakeDetection() {
 
     if (
-        !("DeviceMotionEvent" in window)
+        !(
+            "DeviceMotionEvent"
+            in window
+        )
     ) {
 
         console.log(
-            "DeviceMotion is not supported by this device."
+            "DeviceMotion is not supported."
         );
 
         return;
     }
 
 
-    // Some browsers require permission
-
     if (
 
-        typeof DeviceMotionEvent.requestPermission ===
+        typeof
+        DeviceMotionEvent
+            .requestPermission
+        ===
         "function"
 
     ) {
@@ -483,11 +542,14 @@ async function startShakeDetection() {
         try {
 
             const permission =
-                await DeviceMotionEvent.requestPermission();
+                await
+                DeviceMotionEvent
+                    .requestPermission();
 
 
             if (
-                permission !== "granted"
+                permission !==
+                "granted"
             ) {
 
                 console.log(
@@ -518,8 +580,11 @@ async function startShakeDetection() {
 
 
     window.addEventListener(
+
         "devicemotion",
+
         handleDeviceMotion
+
     );
 
 
@@ -537,9 +602,12 @@ async function startShakeDetection() {
 // DEVICE MOTION HANDLER
 // ===============================
 
-function handleDeviceMotion(event) {
+function handleDeviceMotion(
+    event
+) {
 
     if (!trackingActive) {
+
         return;
     }
 
@@ -574,8 +642,6 @@ function handleDeviceMotion(event) {
     };
 
 
-    // First motion reading
-
     if (
         lastAcceleration === null
     ) {
@@ -587,15 +653,12 @@ function handleDeviceMotion(event) {
     }
 
 
-    // ===============================
-    // ACCELERATION CHANGE
-    // ===============================
-
     const deltaX =
         Math.abs(
 
             currentAcceleration.x -
             lastAcceleration.x
+
         );
 
 
@@ -604,6 +667,7 @@ function handleDeviceMotion(event) {
 
             currentAcceleration.y -
             lastAcceleration.y
+
         );
 
 
@@ -612,6 +676,7 @@ function handleDeviceMotion(event) {
 
             currentAcceleration.z -
             lastAcceleration.z
+
         );
 
 
@@ -627,14 +692,13 @@ function handleDeviceMotion(event) {
 
 
     console.log(
+
         "Shake movement:",
+
         movementAmount.toFixed(3)
+
     );
 
-
-    // ===============================
-    // SHAKE DETECTION
-    // ===============================
 
     const currentTime =
         Date.now();
@@ -674,39 +738,41 @@ function handleDeviceMotion(event) {
 
 
 // ===============================
-// HANDLE DEVICE SHAKE
+// SHAKE MOVEMENT
 // ===============================
 
 function handleShakeMovement(
     movementAmount
 ) {
 
-    // Use the last known GPS position
-    // if GPS is currently unavailable.
-
     const shakePosition = {
 
         latitude:
+
             previousPosition
                 ? previousPosition.latitude
                 : null,
 
         longitude:
+
             previousPosition
                 ? previousPosition.longitude
                 : null,
 
         accuracy:
+
             previousPosition
                 ? previousPosition.accuracy
                 : null,
 
         speed:
+
             previousPosition
                 ? previousPosition.speed
                 : null,
 
         altitude:
+
             previousPosition
                 ? previousPosition.altitude
                 : null,
@@ -753,80 +819,7 @@ function handleMovement(
 
 ) {
 
-    // ===============================
-    // SHOW SAFETY ALERT
-    // ===============================
-
-    alertBox.classList.remove(
-        "hidden"
-    );
-
-
-    movementMessage.textContent =
-        `${source} detected. Movement: ${distance.toFixed(3)}`;
-
-
-    // ===============================
-    // CONSOLE
-    // ===============================
-
-    console.log(
-        "SAFETY MOVEMENT EVENT"
-    );
-
-
-    console.log({
-
-        source:
-            source,
-
-        latitude:
-            position.latitude,
-
-        longitude:
-            position.longitude,
-
-        accuracy:
-            position.accuracy,
-
-        speed:
-            position.speed,
-
-        previous_speed:
-            previousSpeed,
-
-        altitude:
-            position.altitude,
-
-        timestamp:
-            position.timestamp,
-
-        distance:
-            distance,
-
-        speed_change:
-            speedChange,
-
-        acceleration:
-            acceleration,
-
-        direction:
-            direction
-    });
-
-
-    // ===============================
-    // START BROWSER ALARM
-    // ===============================
-
-    startAlarm();
-
-
-    // ===============================
-    // SEND TO FLASK
-    // ===============================
-
-    sendMovementToBackend({
+    const movementEvent = {
 
         latitude:
             position.latitude,
@@ -863,7 +856,56 @@ function handleMovement(
 
         source:
             source
-    });
+    };
+
+
+    lastMovementEvent =
+        movementEvent;
+
+
+    // ===============================
+    // VISUAL ALERT
+    // ===============================
+
+    alertBox.classList.remove(
+        "hidden"
+    );
+
+
+    movementMessage.textContent =
+
+        `${source} detected. Movement: ` +
+
+        `${distance.toFixed(3)}`;
+
+
+    // ===============================
+    // LOG
+    // ===============================
+
+    console.log(
+        "SAFETY MOVEMENT EVENT"
+    );
+
+    console.log(
+        movementEvent
+    );
+
+
+    // ===============================
+    // BROWSER ALARM
+    // ===============================
+
+    startAlarm();
+
+
+    // ===============================
+    // FLASK
+    // ===============================
+
+    sendMovementToBackend(
+        movementEvent
+    );
 }
 
 
@@ -885,10 +927,13 @@ async function sendMovementToBackend(
 
         const response =
             await fetch(
+
                 "/movement",
+
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
 
@@ -947,9 +992,6 @@ async function sendMovementToBackend(
 
     } catch (error) {
 
-        // Backend failure must NOT
-        // stop the browser alarm.
-
         console.error(
             "Unable to send movement to Flask:",
             error
@@ -959,12 +1001,13 @@ async function sendMovementToBackend(
 
 
 // ===============================
-// START BROWSER ALARM
+// BROWSER ALARM
 // ===============================
 
 function startAlarm() {
 
     if (alarmActive) {
+
         return;
     }
 
@@ -995,14 +1038,18 @@ function startAlarm() {
 
         alarmInterval =
             setInterval(
+
                 playAlarmSound,
+
                 1000
+
             );
 
 
         console.log(
             "Browser safety alarm started."
         );
+
 
     } catch (error) {
 
@@ -1015,22 +1062,25 @@ function startAlarm() {
 
 
 // ===============================
-// PLAY ALARM SOUND
+// PLAY ALARM
 // ===============================
 
 function playAlarmSound() {
 
     if (!audioContext) {
+
         return;
     }
 
 
     const oscillator =
-        audioContext.createOscillator();
+        audioContext
+            .createOscillator();
 
 
     const gain =
-        audioContext.createGain();
+        audioContext
+            .createGain();
 
 
     oscillator.type =
@@ -1038,20 +1088,29 @@ function playAlarmSound() {
 
 
     oscillator.frequency.setValueAtTime(
+
         880,
+
         audioContext.currentTime
+
     );
 
 
     gain.gain.setValueAtTime(
+
         0.3,
+
         audioContext.currentTime
+
     );
 
 
     gain.gain.exponentialRampToValueAtTime(
+
         0.01,
+
         audioContext.currentTime + 0.4
+
     );
 
 
@@ -1066,7 +1125,10 @@ function playAlarmSound() {
 
 
     oscillator.stop(
-        audioContext.currentTime + 0.4
+
+        audioContext.currentTime +
+        0.4
+
     );
 }
 
@@ -1111,7 +1173,9 @@ function stopAlarm() {
 // ===============================
 
 safeBtn.addEventListener(
+
     "click",
+
     function () {
 
         stopAlarm();
@@ -1126,6 +1190,7 @@ safeBtn.addEventListener(
             "User confirmed safe."
         );
     }
+
 );
 
 
@@ -1134,22 +1199,148 @@ safeBtn.addEventListener(
 // ===============================
 
 emergencyBtn.addEventListener(
+
     "click",
-    function () {
 
-        console.log(
-            "Emergency button clicked."
-        );
+    reportEmergency
 
-        // Twilio will be connected
-        // in the next step.
-
-    }
 );
 
 
+async function reportEmergency() {
+
+    const confirmed =
+        confirm(
+
+            "Are you sure you want to report an emergency?\n\n" +
+
+            "An SMS will be sent to your emergency contact."
+
+        );
+
+
+    if (!confirmed) {
+
+        return;
+    }
+
+
+    // Keep alarm active while
+    // emergency request is sent.
+
+
+    console.log(
+        "Reporting emergency..."
+    );
+
+
+    // Use latest movement data
+
+    const emergencyData =
+        lastMovementEvent || {
+
+            latitude:
+                previousPosition
+                    ? previousPosition.latitude
+                    : null,
+
+            longitude:
+                previousPosition
+                    ? previousPosition.longitude
+                    : null,
+
+            accuracy:
+                previousPosition
+                    ? previousPosition.accuracy
+                    : null,
+
+            distance:
+                0,
+
+            source:
+                "Emergency Button"
+        };
+
+
+    try {
+
+        const response =
+            await fetch(
+
+                "/api/emergency",
+
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(
+                            emergencyData
+                        )
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        console.log(
+            "Emergency response:",
+            result
+        );
+
+
+        if (
+            result.success
+        ) {
+
+            alert(
+                "Emergency alert sent successfully."
+            );
+
+
+            console.log(
+                "Emergency SMS sent."
+            );
+
+
+        } else {
+
+            alert(
+
+                "Emergency alert could not be sent.\n\n" +
+
+                result.message
+
+            );
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Emergency request failed:",
+            error
+        );
+
+
+        alert(
+            "Unable to contact the emergency server."
+        );
+    }
+}
+
+
 // ===============================
-// UPDATE GPS DISPLAY
+// GPS DISPLAY
 // ===============================
 
 function updateGPSDisplay(
@@ -1157,12 +1348,14 @@ function updateGPSDisplay(
 ) {
 
     if (
-        position.latitude !== null
+        position.latitude !== null &&
+        position.latitude !== undefined
     ) {
 
         latitudeElement.textContent =
-            Number(position.latitude)
-                .toFixed(6);
+            Number(
+                position.latitude
+            ).toFixed(6);
 
     } else {
 
@@ -1172,12 +1365,14 @@ function updateGPSDisplay(
 
 
     if (
-        position.longitude !== null
+        position.longitude !== null &&
+        position.longitude !== undefined
     ) {
 
         longitudeElement.textContent =
-            Number(position.longitude)
-                .toFixed(6);
+            Number(
+                position.longitude
+            ).toFixed(6);
 
     } else {
 
@@ -1191,8 +1386,9 @@ function updateGPSDisplay(
         position.accuracy !== null &&
         position.accuracy !== undefined
 
-            ? Number(position.accuracy)
-                .toFixed(2)
+            ? Number(
+                position.accuracy
+              ).toFixed(2)
 
             : "Unavailable";
 
@@ -1202,8 +1398,9 @@ function updateGPSDisplay(
         position.speed !== null &&
         position.speed !== undefined
 
-            ? Number(position.speed)
-                .toFixed(2)
+            ? Number(
+                position.speed
+              ).toFixed(2)
 
             : "Unavailable";
 
@@ -1213,8 +1410,9 @@ function updateGPSDisplay(
         position.altitude !== null &&
         position.altitude !== undefined
 
-            ? Number(position.altitude)
-                .toFixed(2)
+            ? Number(
+                position.altitude
+              ).toFixed(2)
 
             : "Unavailable";
 
@@ -1244,9 +1442,6 @@ function handleGeolocationError(
         error
     );
 
-
-    // Do NOT stop tracking because
-    // of a temporary GPS timeout.
 
     switch (error.code) {
 
@@ -1287,8 +1482,11 @@ function handleGeolocationError(
 // ===============================
 
 stopBtn.addEventListener(
+
     "click",
+
     stopTracking
+
 );
 
 
@@ -1310,12 +1508,16 @@ function stopTracking() {
 
 
     referencePosition = null;
+
     previousPosition = null;
+
     previousSpeed = null;
 
-
     lastAcceleration = null;
+
     lastShakeTime = 0;
+
+    lastMovementEvent = null;
 
 
     stopAlarm();
@@ -1331,6 +1533,7 @@ function stopTracking() {
 
 
     startBtn.disabled = false;
+
     stopBtn.disabled = true;
 
 
