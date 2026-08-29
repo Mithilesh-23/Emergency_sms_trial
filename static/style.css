@@ -91,3 +91,35 @@ button:disabled {
 .hidden {
     display: none;
 }
+
+
+
+.emergency-main {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#emergencyMainBtn {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    border-radius: 12px;
+    background: #dc2626;
+    color: white;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#emergencyMainBtn:hover {
+    background: #b91c1c;
+}
+
+#emergencyMainBtn:active {
+    transform: scale(0.98);
+}
+
+#emergencyMainBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

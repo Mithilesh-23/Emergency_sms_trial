@@ -1,61 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>SafeRoute AI</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <h1>SafeRoute AI</h1>
-        <p class="subtitle">Women Safety Monitoring System</p>
+    <h1>SafeRoute AI</h1>
 
-        <div class="status-box">
-            <p>Status: <span id="trackingStatus">Not Tracking</span></p>
-        </div>
+    <p class="subtitle">
+        Women Safety Monitoring System
+    </p>
 
-        <div class="buttons">
-            <button id="startBtn">Start Tracking</button>
-            <button id="stopBtn" disabled>Stop Tracking</button>
-        </div>
 
-        <div class="gps-box">
+    <!-- STATUS -->
+    <div class="status-box">
 
-            <h2>GPS Information</h2>
+        <p>
+            Status:
+            <span id="trackingStatus">
+                Not Tracking
+            </span>
+        </p>
 
-            <p>Latitude: <span id="latitude">--</span></p>
-            <p>Longitude: <span id="longitude">--</span></p>
-            <p>Accuracy: <span id="accuracy">--</span> m</p>
-            <p>Speed: <span id="speed">--</span> m/s</p>
-            <p>Altitude: <span id="altitude">--</span> m</p>
-            <p>Timestamp: <span id="timestamp">--</span></p>
+    </div>
 
-        </div>
 
-        <div id="alertBox" class="alert-box hidden">
+    <!-- TRACKING BUTTONS -->
+    <div class="buttons">
 
-            <h2>⚠ Movement Detected</h2>
+        <button
+            type="button"
+            id="startBtn">
+            Start Tracking
+        </button>
 
-            <p id="movementMessage">
-                Movement has been detected.
-            </p>
+        <button
+            type="button"
+            id="stopBtn"
+            disabled>
+            Stop Tracking
+        </button>
 
-            <div class="emergency-buttons">
-                <button id="safeBtn">Confirm Safe</button>
-                <button id="emergencyBtn">Report Emergency</button>
-            </div>
+        <div class="emergency-main">
+    <button id="emergencyMainBtn" type="button">
+        🚨 EMERGENCY
+    </button>
+</div>
+
+    </div>
+
+
+    <!-- GPS INFORMATION -->
+    <div class="gps-box">
+
+        <h2>GPS Information</h2>
+
+        <p>
+            Latitude:
+            <span id="latitude">--</span>
+        </p>
+
+        <p>
+            Longitude:
+            <span id="longitude">--</span>
+        </p>
+
+        <p>
+            Accuracy:
+            <span id="accuracy">--</span> m
+        </p>
+
+        <p>
+            Speed:
+            <span id="speed">--</span> m/s
+        </p>
+
+        <p>
+            Altitude:
+            <span id="altitude">--</span> m
+        </p>
+
+        <p>
+            Timestamp:
+            <span id="timestamp">--</span>
+        </p>
+
+    </div>
+
+
+    <!-- MOVEMENT / EMERGENCY ALERT -->
+    <div
+        id="alertBox"
+        class="alert-box hidden">
+
+        <h2>
+            ⚠ Movement Detected
+        </h2>
+
+        <p id="movementMessage">
+            Movement has been detected.
+        </p>
+
+
+        <!-- EMERGENCY ACTION BUTTONS -->
+        <div class="emergency-buttons">
+
+            <button
+                type="button"
+                id="safeBtn">
+                Confirm Safe
+            </button>
+
+            <button
+                type="button"
+                id="emergencyBtn">
+                Report Emergency
+            </button>
 
         </div>
 
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</div>
+
+
+<!-- JAVASCRIPT -->
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 
 </body>
+
 </html>
