@@ -1,6 +1,6 @@
 // ===============================
 // SafeRoute AI
-// GPS + Shake Detection + Alarm
+// GPS + Device Shake + Safety Alert
 // ===============================
 
 
@@ -9,10 +9,10 @@
 // ===============================
 
 // GPS movement threshold
-// Keep 0 for highly sensitive testing
+// 0 = highly sensitive testing
 const MIN_MOVEMENT_METERS = 0;
 
-// Laptop shake sensitivity
+// Shake sensitivity
 // Lower value = more sensitive
 const SHAKE_THRESHOLD = 0.30;
 
@@ -29,14 +29,14 @@ let trackingActive = false;
 
 let referencePosition = null;
 let previousPosition = null;
+let previousSpeed = null;
 
 
 // ===============================
-// SHAKE DETECTION STATE
+// DEVICE MOTION STATE
 // ===============================
 
 let motionTrackingActive = false;
-
 let lastAcceleration = null;
 let lastShakeTime = 0;
 
@@ -54,8 +54,11 @@ let alarmActive = false;
 // DOM ELEMENTS
 // ===============================
 
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
+const startBtn =
+    document.getElementById("startBtn");
+
+const stopBtn =
+    document.getElementById("stopBtn");
 
 const trackingStatus =
     document.getElementById("trackingStatus");
@@ -95,7 +98,10 @@ const emergencyBtn =
 // START TRACKING
 // ===============================
 
-startBtn.addEventListener("click", startTracking);
+startBtn.addEventListener(
+    "click",
+    startTracking
+);
 
 
 async function startTracking() {
@@ -115,10 +121,17 @@ async function startTracking() {
     }
 
 
+    // Reset tracking state
+
     trackingActive = true;
 
     referencePosition = null;
     previousPosition = null;
+    previousSpeed = null;
+
+    lastAcceleration = null;
+    lastShakeTime = 0;
+
 
     alertBox.classList.add("hidden");
 
@@ -129,20 +142,26 @@ async function startTracking() {
         "Requesting GPS...";
 
 
-    // Start GPS
+    // ===============================
+    // START GPS WATCH
+    // ===============================
+
     watchId =
         navigator.geolocation.watchPosition(
             handlePosition,
             handleGeolocationError,
             {
                 enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000
+                maximumAge: 10000,
+                timeout: 20000
             }
         );
 
 
-    // Start Device Motion
+    // ===============================
+    // START DEVICE MOTION
+    // ===============================
+
     await startShakeDetection();
 
 
@@ -150,33 +169,45 @@ async function startTracking() {
     stopBtn.disabled = false;
 
 
-    console.log("GPS tracking started.");
-    console.log("Shake detection started.");
+    console.log(
+        "GPS tracking started."
+    );
+
+    console.log(
+        "Shake detection started."
+    );
 }
 
 
 // ===============================
-// GPS POSITION
+// GPS POSITION HANDLER
 // ===============================
 
 function handlePosition(position) {
 
-    const coords = position.coords;
+    const coords =
+        position.coords;
 
 
     const currentPosition = {
 
-        latitude: coords.latitude,
+        latitude:
+            coords.latitude,
 
-        longitude: coords.longitude,
+        longitude:
+            coords.longitude,
 
-        accuracy: coords.accuracy,
+        accuracy:
+            coords.accuracy,
 
-        speed: coords.speed,
+        speed:
+            coords.speed,
 
-        altitude: coords.altitude,
+        altitude:
+            coords.altitude,
 
-        timestamp: position.timestamp
+        timestamp:
+            position.timestamp
     };
 
 
@@ -184,11 +215,24 @@ function handlePosition(position) {
     // FIRST GPS POSITION
     // ===============================
 
-    if (referencePosition === null) {
+    if (
+        referencePosition === null
+    ) {
 
-        referencePosition = currentPosition;
+        referencePosition =
+            currentPosition;
 
-        previousPosition = currentPosition;
+        previousPosition =
+            currentPosition;
+
+
+        if (
+            currentPosition.speed !== null
+        ) {
+
+            previousSpeed =
+                currentPosition.speed;
+        }
 
 
         updateGPSDisplay(
@@ -214,16 +258,41 @@ function handlePosition(position) {
 
 
     // ===============================
-    // HAVERSINE DISTANCE
+    // CALCULATE GPS DISTANCE
     // ===============================
 
     const distance =
         calculateDistance(
+
             previousPosition.latitude,
+
             previousPosition.longitude,
+
             currentPosition.latitude,
+
             currentPosition.longitude
         );
+
+
+    // ===============================
+    // CALCULATE SPEED CHANGE
+    // ===============================
+
+    let speedChange = 0;
+
+
+    if (
+
+        currentPosition.speed !== null &&
+
+        previousSpeed !== null
+
+    ) {
+
+        speedChange =
+            currentPosition.speed -
+            previousSpeed;
+    }
 
 
     console.log(
@@ -246,7 +315,7 @@ function handlePosition(position) {
 
 
     // ===============================
-    // MOVEMENT DETECTION
+    // GPS MOVEMENT DETECTION
     // ===============================
 
     if (
@@ -260,9 +329,18 @@ function handlePosition(position) {
 
 
         handleMovement(
+
             currentPosition,
+
             distance,
-            "GPS Movement"
+
+            "GPS Movement",
+
+            speedChange,
+
+            0,
+
+            null
         );
     }
 
@@ -273,6 +351,15 @@ function handlePosition(position) {
 
     previousPosition =
         currentPosition;
+
+
+    if (
+        currentPosition.speed !== null
+    ) {
+
+        previousSpeed =
+            currentPosition.speed;
+    }
 
 
     updateGPSDisplay(
@@ -286,7 +373,7 @@ function handlePosition(position) {
 
 
 // ===============================
-// HAVERSINE FORMULA
+// HAVERSINE DISTANCE
 // ===============================
 
 function calculateDistance(
@@ -296,15 +383,20 @@ function calculateDistance(
     lon2
 ) {
 
-    const EARTH_RADIUS = 6371000;
+    const EARTH_RADIUS =
+        6371000;
 
 
     const latitudeDifference =
-        toRadians(lat2 - lat1);
+        toRadians(
+            lat2 - lat1
+        );
 
 
     const longitudeDifference =
-        toRadians(lon2 - lon1);
+        toRadians(
+            lon2 - lon1
+        );
 
 
     const firstLatitude =
@@ -362,19 +454,17 @@ function toRadians(degrees) {
 
 
 // ===============================
-// DEVICE MOTION / SHAKE DETECTION
+// DEVICE MOTION
 // ===============================
 
 async function startShakeDetection() {
-
-    // Check browser support
 
     if (
         !("DeviceMotionEvent" in window)
     ) {
 
         console.log(
-            "DeviceMotion is not supported."
+            "DeviceMotion is not supported by this device."
         );
 
         return;
@@ -384,8 +474,10 @@ async function startShakeDetection() {
     // Some browsers require permission
 
     if (
+
         typeof DeviceMotionEvent.requestPermission ===
         "function"
+
     ) {
 
         try {
@@ -394,7 +486,9 @@ async function startShakeDetection() {
                 await DeviceMotionEvent.requestPermission();
 
 
-            if (permission !== "granted") {
+            if (
+                permission !== "granted"
+            ) {
 
                 console.log(
                     "DeviceMotion permission denied."
@@ -415,7 +509,10 @@ async function startShakeDetection() {
     }
 
 
-    if (motionTrackingActive) {
+    if (
+        motionTrackingActive
+    ) {
+
         return;
     }
 
@@ -426,7 +523,8 @@ async function startShakeDetection() {
     );
 
 
-    motionTrackingActive = true;
+    motionTrackingActive =
+        true;
 
 
     console.log(
@@ -436,7 +534,7 @@ async function startShakeDetection() {
 
 
 // ===============================
-// HANDLE DEVICE MOTION
+// DEVICE MOTION HANDLER
 // ===============================
 
 function handleDeviceMotion(event) {
@@ -451,10 +549,6 @@ function handleDeviceMotion(event) {
 
 
     if (!acceleration) {
-
-        console.log(
-            "No acceleration data available."
-        );
 
         return;
     }
@@ -471,15 +565,20 @@ function handleDeviceMotion(event) {
 
 
     const currentAcceleration = {
+
         x: x,
+
         y: y,
+
         z: z
     };
 
 
     // First motion reading
 
-    if (lastAcceleration === null) {
+    if (
+        lastAcceleration === null
+    ) {
 
         lastAcceleration =
             currentAcceleration;
@@ -489,11 +588,12 @@ function handleDeviceMotion(event) {
 
 
     // ===============================
-    // CHANGE IN ACCELERATION
+    // ACCELERATION CHANGE
     // ===============================
 
     const deltaX =
         Math.abs(
+
             currentAcceleration.x -
             lastAcceleration.x
         );
@@ -501,6 +601,7 @@ function handleDeviceMotion(event) {
 
     const deltaY =
         Math.abs(
+
             currentAcceleration.y -
             lastAcceleration.y
         );
@@ -508,6 +609,7 @@ function handleDeviceMotion(event) {
 
     const deltaZ =
         Math.abs(
+
             currentAcceleration.z -
             lastAcceleration.z
         );
@@ -515,8 +617,11 @@ function handleDeviceMotion(event) {
 
     const movementAmount =
         Math.sqrt(
+
             deltaX * deltaX +
+
             deltaY * deltaY +
+
             deltaZ * deltaZ
         );
 
@@ -528,7 +633,7 @@ function handleDeviceMotion(event) {
 
 
     // ===============================
-    // SHAKE THRESHOLD
+    // SHAKE DETECTION
     // ===============================
 
     const currentTime =
@@ -536,11 +641,16 @@ function handleDeviceMotion(event) {
 
 
     if (
+
         movementAmount >=
         SHAKE_THRESHOLD
+
         &&
-        currentTime - lastShakeTime >=
+
+        currentTime -
+        lastShakeTime >=
         SHAKE_COOLDOWN
+
     ) {
 
         lastShakeTime =
@@ -548,12 +658,11 @@ function handleDeviceMotion(event) {
 
 
         console.log(
-            "LAPTOP SHAKE DETECTED!"
+            "DEVICE SHAKE DETECTED!"
         );
 
 
         handleShakeMovement(
-            currentAcceleration,
             movementAmount
         );
     }
@@ -565,13 +674,15 @@ function handleDeviceMotion(event) {
 
 
 // ===============================
-// SHAKE MOVEMENT HANDLER
+// HANDLE DEVICE SHAKE
 // ===============================
 
 function handleShakeMovement(
-    acceleration,
     movementAmount
 ) {
+
+    // Use the last known GPS position
+    // if GPS is currently unavailable.
 
     const shakePosition = {
 
@@ -606,9 +717,18 @@ function handleShakeMovement(
 
 
     handleMovement(
+
         shakePosition,
+
         movementAmount,
-        "Laptop Shake"
+
+        "Device Shake",
+
+        0,
+
+        movementAmount,
+
+        null
     );
 }
 
@@ -618,10 +738,24 @@ function handleShakeMovement(
 // ===============================
 
 function handleMovement(
+
     position,
+
     distance,
-    source
+
+    source,
+
+    speedChange = 0,
+
+    acceleration = 0,
+
+    direction = null
+
 ) {
+
+    // ===============================
+    // SHOW SAFETY ALERT
+    // ===============================
 
     alertBox.classList.remove(
         "hidden"
@@ -632,6 +766,10 @@ function handleMovement(
         `${source} detected. Movement: ${distance.toFixed(3)}`;
 
 
+    // ===============================
+    // CONSOLE
+    // ===============================
+
     console.log(
         "SAFETY MOVEMENT EVENT"
     );
@@ -639,7 +777,8 @@ function handleMovement(
 
     console.log({
 
-        source: source,
+        source:
+            source,
 
         latitude:
             position.latitude,
@@ -653,25 +792,174 @@ function handleMovement(
         speed:
             position.speed,
 
+        previous_speed:
+            previousSpeed,
+
         altitude:
             position.altitude,
 
         timestamp:
             position.timestamp,
 
-        movement:
-            distance
+        distance:
+            distance,
+
+        speed_change:
+            speedChange,
+
+        acceleration:
+            acceleration,
+
+        direction:
+            direction
     });
 
 
-    // Start browser alarm
+    // ===============================
+    // START BROWSER ALARM
+    // ===============================
 
     startAlarm();
+
+
+    // ===============================
+    // SEND TO FLASK
+    // ===============================
+
+    sendMovementToBackend({
+
+        latitude:
+            position.latitude,
+
+        longitude:
+            position.longitude,
+
+        accuracy:
+            position.accuracy,
+
+        altitude:
+            position.altitude,
+
+        timestamp:
+            position.timestamp,
+
+        distance:
+            distance,
+
+        speed:
+            position.speed,
+
+        previous_speed:
+            previousSpeed,
+
+        speed_change:
+            speedChange,
+
+        acceleration:
+            acceleration,
+
+        direction:
+            direction,
+
+        source:
+            source
+    });
 }
 
 
 // ===============================
-// BROWSER ALARM
+// SEND MOVEMENT TO FLASK
+// ===============================
+
+async function sendMovementToBackend(
+    movementData
+) {
+
+    try {
+
+        console.log(
+            "Sending movement to Flask:",
+            movementData
+        );
+
+
+        const response =
+            await fetch(
+                "/movement",
+                {
+
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(
+                            movementData
+                        )
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        console.log(
+            "Flask movement response:",
+            result
+        );
+
+
+        if (
+            !result.success
+        ) {
+
+            console.error(
+                "Movement API failed:",
+                result.message
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "Risk Level:",
+            result.risk_level
+        );
+
+
+        console.log(
+            "Risk Score:",
+            result.risk_score
+        );
+
+
+        console.log(
+            "Recommended Action:",
+            result.action
+        );
+
+
+    } catch (error) {
+
+        // Backend failure must NOT
+        // stop the browser alarm.
+
+        console.error(
+            "Unable to send movement to Flask:",
+            error
+        );
+    }
+}
+
+
+// ===============================
+// START BROWSER ALARM
 // ===============================
 
 function startAlarm() {
@@ -789,7 +1077,9 @@ function playAlarmSound() {
 
 function stopAlarm() {
 
-    if (alarmInterval !== null) {
+    if (
+        alarmInterval !== null
+    ) {
 
         clearInterval(
             alarmInterval
@@ -826,6 +1116,7 @@ safeBtn.addEventListener(
 
         stopAlarm();
 
+
         alertBox.classList.add(
             "hidden"
         );
@@ -852,6 +1143,7 @@ emergencyBtn.addEventListener(
 
         // Twilio will be connected
         // in the next step.
+
     }
 );
 
@@ -864,39 +1156,129 @@ function updateGPSDisplay(
     position
 ) {
 
-    latitudeElement.textContent =
-        position.latitude.toFixed(6);
+    if (
+        position.latitude !== null
+    ) {
+
+        latitudeElement.textContent =
+            Number(position.latitude)
+                .toFixed(6);
+
+    } else {
+
+        latitudeElement.textContent =
+            "--";
+    }
 
 
-    longitudeElement.textContent =
-        position.longitude.toFixed(6);
+    if (
+        position.longitude !== null
+    ) {
+
+        longitudeElement.textContent =
+            Number(position.longitude)
+                .toFixed(6);
+
+    } else {
+
+        longitudeElement.textContent =
+            "--";
+    }
 
 
     accuracyElement.textContent =
 
-        position.accuracy !== null
-            ? position.accuracy.toFixed(2)
+        position.accuracy !== null &&
+        position.accuracy !== undefined
+
+            ? Number(position.accuracy)
+                .toFixed(2)
+
             : "Unavailable";
 
 
     speedElement.textContent =
 
-        position.speed !== null
-            ? position.speed.toFixed(2)
+        position.speed !== null &&
+        position.speed !== undefined
+
+            ? Number(position.speed)
+                .toFixed(2)
+
             : "Unavailable";
 
 
     altitudeElement.textContent =
 
-        position.altitude !== null
-            ? position.altitude.toFixed(2)
+        position.altitude !== null &&
+        position.altitude !== undefined
+
+            ? Number(position.altitude)
+                .toFixed(2)
+
             : "Unavailable";
 
 
     timestampElement.textContent =
-        new Date(
-            position.timestamp
-        ).toLocaleString();
+
+        position.timestamp
+
+            ? new Date(
+                position.timestamp
+              ).toLocaleString()
+
+            : "--";
+}
+
+
+// ===============================
+// GPS ERROR HANDLING
+// ===============================
+
+function handleGeolocationError(
+    error
+) {
+
+    console.error(
+        "GPS Error:",
+        error
+    );
+
+
+    // Do NOT stop tracking because
+    // of a temporary GPS timeout.
+
+    switch (error.code) {
+
+        case error.PERMISSION_DENIED:
+
+            trackingStatus.textContent =
+                "Location Permission Denied";
+
+            break;
+
+
+        case error.POSITION_UNAVAILABLE:
+
+            trackingStatus.textContent =
+                "GPS Temporarily Unavailable";
+
+            break;
+
+
+        case error.TIMEOUT:
+
+            trackingStatus.textContent =
+                "Tracking Active - Waiting for GPS";
+
+            break;
+
+
+        default:
+
+            trackingStatus.textContent =
+                "GPS Error - Tracking Active";
+    }
 }
 
 
@@ -912,7 +1294,9 @@ stopBtn.addEventListener(
 
 function stopTracking() {
 
-    if (watchId !== null) {
+    if (
+        watchId !== null
+    ) {
 
         navigator.geolocation.clearWatch(
             watchId
@@ -927,6 +1311,7 @@ function stopTracking() {
 
     referencePosition = null;
     previousPosition = null;
+    previousSpeed = null;
 
 
     lastAcceleration = null;
@@ -952,52 +1337,4 @@ function stopTracking() {
     console.log(
         "GPS tracking stopped."
     );
-}
-
-
-// ===============================
-// GPS ERROR HANDLING
-// ===============================
-
-function handleGeolocationError(
-    error
-) {
-
-    console.error(
-        "GPS Error:",
-        error
-    );
-
-
-    switch (error.code) {
-
-        case error.PERMISSION_DENIED:
-
-            trackingStatus.textContent =
-                "Location Permission Denied";
-
-            break;
-
-
-        case error.POSITION_UNAVAILABLE:
-
-            trackingStatus.textContent =
-                "GPS Position Unavailable";
-
-            break;
-
-
-        case error.TIMEOUT:
-
-            trackingStatus.textContent =
-                "GPS Request Timeout";
-
-            break;
-
-
-        default:
-
-            trackingStatus.textContent =
-                "GPS Error";
-    }
 }
